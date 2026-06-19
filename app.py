@@ -287,64 +287,72 @@ def generate_chart():
                           color='white', linewidth=0.5, alpha=0.2))
 
     # --- Right panel (top half: 0.93 → 0.51) ---
-    px = 0.68
-    n  = len(legs)
+    px    = 0.68
+    n     = len(legs)
+    n_eff = 2 if strategy == 'IC' else n   # IC = 2 rows of 2
 
-    # Font sizes adaptive to number of legs in the half-panel
-    num_fs   = 24 if n <= 2 else (20 if n == 3 else 16)
-    label_fs = 12 if n <= 2 else (11 if n == 3 else  9)
+    # One adaptive font for EVERYTHING: ticker, exp, DTE, labels, numbers.
+    # Budget: cur_y travels from 0.85 → 0.51 = 0.34 fig units.
+    # Cost per item at fs pt: fh = fs/(72*8)
+    #   ticker:  1.3 fh
+    #   exp date:  1.1 fh
+    #   DTE line:  1.2 fh
+    #   gap:       0.4 fh
+    #   each leg:  3.2 fh  (label 1.2 + number 1.6 + gap 0.4)
+    # Total = fh * (4.0 + 3.2 * n_eff) ≤ 0.34
+    fs  = max(9, int(min(28, 195.84 / (4.0 + 3.2 * n_eff))))
+    fh  = fs / (72.0 * 8)
 
     op_name = STRATEGY_NAMES.get(strategy, strategy)
     fig.text(px, 0.93, op_name, color="white", fontsize=11, fontweight="heavy",
              ha="left", va="top", transform=fig.transFigure,
              bbox=dict(boxstyle="round,pad=0.4", fc=bg, ec="#00BFFF", linewidth=1.5))
 
-    # Ticker — same size as numbers
-    fig.text(px, 0.83, symbol, color="#00BFFF", fontsize=num_fs, fontweight="bold",
-             ha="left", va="top", transform=fig.transFigure)
+    cur_y = 0.85
 
-    # Expiration date + DTE
+    # Ticker
+    fig.text(px, cur_y, symbol, color="#00BFFF", fontsize=fs, fontweight="bold",
+             ha="left", va="top", transform=fig.transFigure)
+    cur_y -= fh * 1.3
+
+    # Exp date and DTE — two separate lines, same font size
     if exp_date:
         try:
             exp_dt = _datetime.strptime(exp_date, "%Y-%m-%d").date()
             dte    = (exp_dt - _date.today()).days
-            exp_label = exp_dt.strftime("%b-%d-%Y") + f"  ·  {dte} DTE"
-            fig.text(px, 0.765, exp_label, color="#A0AABF", fontsize=10, fontweight="bold",
+            fig.text(px, cur_y, exp_dt.strftime("%b-%-d-%Y"),
+                     color="#A0AABF", fontsize=fs, fontweight="bold",
                      ha="left", va="top", transform=fig.transFigure)
+            cur_y -= fh * 1.1
+            fig.text(px, cur_y, f"{dte} DTE",
+                     color="#A0AABF", fontsize=fs, fontweight="bold",
+                     ha="left", va="top", transform=fig.transFigure)
+            cur_y -= fh * 1.2
         except Exception:
             pass
 
-    # Legs — constrained to top half (0.71 → 0.51)
-    legs_top = 0.71
-    legs_bot = 0.51
+    cur_y -= fh * 0.4   # gap before legs
 
+    # Legs
     if strategy == 'IC':
-        # 2×2 grid: put spread on top row, call spread on bottom row
-        # legs order: [BUY PUT, SELL PUT, SELL CALL, BUY CALL]
         px_l, px_r = 0.68, 0.835
-        nf, lf = 22, 11
-        rows = [
-            (0.71, 0.61, legs[0], legs[1]),  # top: BUY PUT | SELL PUT
-            (0.61, 0.51, legs[2], legs[3]),  # bot: SELL CALL | BUY CALL
-        ]
-        for yt, yb, leg_l, leg_r in rows:
-            sh = yt - yb
-            for (label, k, color), col_x in ((leg_l, px_l), (leg_r, px_r)):
-                fig.text(col_x, yt, label, color=color, fontsize=lf, fontweight="bold",
+        rows = [(legs[0], legs[1]), (legs[2], legs[3])]
+        for row_legs in rows:
+            for (label, k, color), col_x in zip(row_legs, (px_l, px_r)):
+                fig.text(col_x, cur_y, label, color=color, fontsize=fs, fontweight="bold",
                          ha="left", va="top", transform=fig.transFigure)
-                fig.text(col_x, yt - sh * 0.42, f"{k:g}", color=color, fontsize=nf, fontweight="bold",
+                fig.text(col_x, cur_y - fh * 1.2, f"{k:g}", color=color, fontsize=fs, fontweight="bold",
                          ha="left", va="top", transform=fig.transFigure,
                          bbox=dict(boxstyle="round,pad=0.3", fc=bg, ec=color, linewidth=1.5))
+            cur_y -= fh * 3.2
     else:
-        slot_h = (legs_top - legs_bot) / n
-        for i, (label, k, color) in enumerate(legs):
-            y_lbl = legs_top - i * slot_h
-            y_num = y_lbl - slot_h * 0.40
-            fig.text(px, y_lbl, label, color=color, fontsize=label_fs, fontweight="bold",
+        for label, k, color in legs:
+            fig.text(px, cur_y, label, color=color, fontsize=fs, fontweight="bold",
                      ha="left", va="top", transform=fig.transFigure)
-            fig.text(px, y_num, f"{k:g}", color=color, fontsize=num_fs, fontweight="bold",
+            fig.text(px, cur_y - fh * 1.2, f"{k:g}", color=color, fontsize=fs, fontweight="bold",
                      ha="left", va="top", transform=fig.transFigure,
                      bbox=dict(boxstyle="round,pad=0.3", fc=bg, ec=color, linewidth=1.5))
+            cur_y -= fh * 3.2
 
     img_io = io.BytesIO()
     fig.savefig(img_io, format='png', facecolor=bg, bbox_inches='tight')
