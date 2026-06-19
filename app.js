@@ -117,7 +117,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function resetForm() {
         renderStrikes(elStrategy.value);
-        elCredit.value = '';
+        elCredit.value  = '';
+        elComment.value = '';
         baseChartImg = null;
         currentChartBlob = null;
         chartImg.style.display = 'none';
