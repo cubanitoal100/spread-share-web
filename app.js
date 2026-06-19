@@ -6,7 +6,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const elCredit = document.getElementById('net_credit');
     const elPrice = document.getElementById('current_price');
     const elComment = document.getElementById('txt_comment');
-    const btnCalc = document.getElementById('btn_calc');
     const btnShare = document.getElementById('btn_share');
     const btnRefresh = document.getElementById('btn_refresh_price');
     const statusMsg = document.getElementById('status_msg');
@@ -16,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const chartPlaceholder = document.getElementById('chart_placeholder');
     
     let debounceTimer;
+    let commentDebounceTimer;
     let currentChartBlob = null;
 
     function setStatus(msg, color = 'var(--text-muted)') {
@@ -67,11 +67,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ s_type, k_short, k_long, exp_date })
             });
             const data = await res.json();
-            
+
             if (data.error) throw new Error(data.error);
-            
+
             elCredit.value = data.net_credit.toFixed(2);
             setStatus("Credit auto-calculated.", "var(--success)");
+            await generateChart();
         } catch (e) {
             setStatus("Error: " + e.message, "red");
             elCredit.value = "";
@@ -96,8 +97,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         setStatus("Generating professional chart...", "var(--primary)");
-        btnCalc.disabled = true;
-        
         try {
             const res = await fetch('/api/generate_chart', {
                 method: 'POST',
@@ -120,8 +119,6 @@ document.addEventListener('DOMContentLoaded', () => {
             setStatus("Chart generated successfully.", "var(--success)");
         } catch (e) {
             setStatus("Error: " + e.message, "red");
-        } finally {
-            btnCalc.disabled = false;
         }
     }
 
@@ -161,10 +158,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function onCommentChange() {
+        clearTimeout(commentDebounceTimer);
+        commentDebounceTimer = setTimeout(() => {
+            if (currentChartBlob) generateChart();
+        }, 1000);
+    }
+
     // Eventos
     elShort.addEventListener('keyup', onStrikeChange);
     elLong.addEventListener('keyup', onStrikeChange);
     elExp.addEventListener('change', autoCalcCredit);
+    elComment.addEventListener('input', onCommentChange);
 
     toggleBtns.forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -174,9 +179,8 @@ document.addEventListener('DOMContentLoaded', () => {
             autoCalcCredit();
         });
     });
-    
+
     btnRefresh.addEventListener('click', loadMarketData);
-    btnCalc.addEventListener('click', generateChart);
     btnShare.addEventListener('click', shareWhatsApp);
 
     // Carga inicial
