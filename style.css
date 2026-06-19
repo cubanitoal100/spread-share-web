@@ -156,6 +156,12 @@ button:active {
     background-color: rgba(255,255,255,0.2);
 }
 
+.btn-icon {
+    font-size: 1.3rem;
+    padding: 10px 14px;
+    line-height: 1;
+}
+
 .btn-success {
     background-color: var(--success);
     color: white;

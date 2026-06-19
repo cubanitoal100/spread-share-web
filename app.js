@@ -115,10 +115,20 @@ document.addEventListener('DOMContentLoaded', () => {
         elDrop.style.display = matches.length > 0 || q ? 'block' : 'none';
     }
 
+    function resetForm() {
+        renderStrikes(elStrategy.value);
+        elCredit.value = '';
+        baseChartImg = null;
+        currentChartBlob = null;
+        chartImg.style.display = 'none';
+        chartPH.style.display  = 'block';
+    }
+
     function selectTicker(ticker) {
         selectedTicker = ticker.toUpperCase().trim();
         elTickerIn.value = selectedTicker;
         elDrop.style.display = 'none';
+        resetForm();
         loadMarketData();
     }
 
@@ -382,14 +392,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── Event listeners ───────────────────────────────────────────────────────
 
-    elStrategy.addEventListener('change', () => {
-        renderStrikes(elStrategy.value);
-        elCredit.value = '';
-        baseChartImg = null;
-        currentChartBlob = null;
-        chartImg.style.display = 'none';
-        chartPH.style.display  = 'block';
-    });
+    elStrategy.addEventListener('change', resetForm);
 
     elExp.addEventListener('change', autoCalcCredit);
     elComment.addEventListener('input', renderWithComment);
