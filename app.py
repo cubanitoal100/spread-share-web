@@ -1,6 +1,7 @@
 import os
 import io
 import time
+from datetime import date as _date, datetime as _datetime
 import numpy as np
 import requests
 from flask import Flask, render_template, request, jsonify, send_file
@@ -145,6 +146,7 @@ def generate_chart():
     strikes   = data.get('strikes', {})
     net_credit = _get_float(data.get('net_credit'))
     current_price = _get_float(data.get('current_price'))
+    exp_date  = data.get('exp_date', '')
 
     if not strategy or not strikes or net_credit is None:
         return jsonify({"error": "Missing parameters"}), 400
@@ -300,6 +302,17 @@ def generate_chart():
     # Ticker — same size as numbers
     fig.text(px, 0.83, symbol, color="#00BFFF", fontsize=num_fs, fontweight="bold",
              ha="left", va="top", transform=fig.transFigure)
+
+    # Expiration date + DTE
+    if exp_date:
+        try:
+            exp_dt = _datetime.strptime(exp_date, "%Y-%m-%d").date()
+            dte    = (exp_dt - _date.today()).days
+            exp_label = exp_dt.strftime("%b-%d-%Y") + f"  ·  {dte} DTE"
+            fig.text(px, 0.765, exp_label, color="#A0AABF", fontsize=10, fontweight="bold",
+                     ha="left", va="top", transform=fig.transFigure)
+        except Exception:
+            pass
 
     # Legs — constrained to top half (0.71 → 0.51)
     legs_top = 0.71

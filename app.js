@@ -281,6 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     strikes:       collectStrikes(),
                     net_credit,
                     current_price: elPrice.value,
+                    exp_date:      elExp.value,
                 }),
                 signal: chartAbortController.signal,
             });
