@@ -9,43 +9,46 @@
 </head>
 <body>
     <div class="container">
-        <!-- Panel Izquierdo: Controles -->
         <div class="sidebar">
             <h2>Spread Parameters</h2>
-            
+
             <div class="input-group">
-                <label>Spread Type:</label>
-                <div class="toggle-container" id="spread_type_toggle">
-                    <button type="button" class="toggle-btn active" data-value="CCS">Call Credit Spread (CCS)</button>
-                    <button type="button" class="toggle-btn" data-value="PCS">Put Credit Spread (PCS)</button>
+                <label>Ticker:</label>
+                <div class="ticker-combobox" id="ticker_combobox">
+                    <input type="text" id="ticker_input" placeholder="Search ticker..." autocomplete="off">
+                    <div class="ticker-dropdown" id="ticker_dropdown"></div>
                 </div>
-                <input type="hidden" id="spread_type" value="CCS">
             </div>
 
             <div class="input-group">
-                <label>Expiration Date (0 DTE default):</label>
-                <select id="expiration_menu">
-                    <option>Searching...</option>
+                <label>Strategy:</label>
+                <select id="strategy_select">
+                    <option value="PCS">Put Credit Spread</option>
+                    <option value="CCS">Call Credit Spread</option>
+                    <option value="IC">Iron Condor</option>
+                    <option value="IB">Iron Butterfly</option>
+                    <option value="CSP">Cash Secured Put</option>
+                    <option value="CC">Covered Call</option>
+                    <option value="JL">Jade Lizard</option>
                 </select>
             </div>
 
             <div class="input-group">
-                <label>Sell Strike:</label>
-                <input type="number" id="short_strike" placeholder="e.g. 7500" step="5">
+                <label>Expiration Date:</label>
+                <select id="expiration_menu">
+                    <option>Loading...</option>
+                </select>
             </div>
 
-            <div class="input-group">
-                <label>Buy Strike:</label>
-                <input type="number" id="long_strike" placeholder="e.g. 7520" step="5">
-            </div>
+            <div id="strikes_container"></div>
 
             <div class="input-group">
                 <label>Net Credit / Premium:</label>
-                <input type="number" id="net_credit" placeholder="e.g. 10 (Auto calculated)" step="0.05">
+                <input type="number" id="net_credit" placeholder="Auto-calculated" step="0.05" readonly>
             </div>
 
             <div class="input-group">
-                <label>Current SPX Price:</label>
+                <label>Current Price:</label>
                 <div class="price-row">
                     <input type="text" id="current_price" readonly>
                     <button id="btn_refresh_price" class="btn-secondary">Refresh</button>
@@ -62,12 +65,11 @@
             <div id="status_msg" class="status">Initializing...</div>
         </div>
 
-        <!-- Panel Derecho: Gráfica -->
         <div class="main-content">
             <div class="chart-container">
                 <img id="chart_img" src="" alt="Spread Chart" style="display: none;">
                 <div id="chart_placeholder" class="placeholder">
-                    Enter data and click "Calculate and Plot"
+                    Select a strategy and enter strikes
                 </div>
             </div>
         </div>

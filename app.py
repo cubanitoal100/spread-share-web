@@ -1,11 +1,13 @@
 import os
 import io
+import time
 import numpy as np
 import requests
 from flask import Flask, render_template, request, jsonify, send_file
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 from flask_cors import CORS
 
 app = Flask(__name__, template_folder='.', static_folder='.', static_url_path='')
@@ -13,9 +15,9 @@ CORS(app)
 
 TRADIER_TOKEN = os.environ.get("TRADIER_TOKEN")
 TRADIER_BASE = "https://api.tradier.com/v1"
-CACHE_TTL = 300  # segundos — cadena de opciones válida 5 min
+CACHE_TTL = 300
 
-_options_cache = {}  # exp_date → (timestamp, [opciones])
+_options_cache = {}
 
 def _headers():
     return {
@@ -26,26 +28,33 @@ def _headers():
 def _get_float(val):
     try:
         return float(val)
-    except:
+    except Exception:
         return None
 
-def _get_options_chain(exp_date):
-    import time
+def _get_options_chain(symbol, exp_date):
+    cache_key = f"{symbol}:{exp_date}"
     now = time.time()
-    if exp_date in _options_cache:
-        ts, opts = _options_cache[exp_date]
+    if cache_key in _options_cache:
+        ts, opts = _options_cache[cache_key]
         if now - ts < CACHE_TTL:
             return opts
     r = requests.get(
         f"{TRADIER_BASE}/markets/options/chains",
-        params={"symbol": "SPX", "expiration": exp_date, "greeks": "false"},
+        params={"symbol": symbol, "expiration": exp_date, "greeks": "false"},
         headers=_headers(),
         timeout=10
     )
     r.raise_for_status()
     opts = r.json()["options"]["option"]
-    _options_cache[exp_date] = (now, opts)
+    _options_cache[cache_key] = (now, opts)
     return opts
+
+def _mid(opt):
+    bid = opt.get("bid") or 0
+    ask = opt.get("ask") or 0
+    if bid == 0 and ask == 0:
+        return opt.get("last") or 0
+    return (bid + ask) / 2
 
 @app.route('/')
 def index():
@@ -53,19 +62,24 @@ def index():
 
 @app.route('/api/market_data')
 def market_data():
+    symbol = request.args.get('symbol', 'SPX').upper().strip()
     try:
         r = requests.get(
             f"{TRADIER_BASE}/markets/quotes",
-            params={"symbols": "SPX"},
+            params={"symbols": symbol},
             headers=_headers(),
             timeout=10
         )
         r.raise_for_status()
         current_price = r.json()["quotes"]["quote"]["last"]
 
+        exp_params = {"symbol": symbol, "strikes": "false"}
+        if symbol in ("SPX", "SPXW"):
+            exp_params["includeAllRoots"] = "true"
+
         r = requests.get(
             f"{TRADIER_BASE}/markets/options/expirations",
-            params={"symbol": "SPX", "includeAllRoots": "true", "strikes": "false"},
+            params=exp_params,
             headers=_headers(),
             timeout=10
         )
@@ -80,138 +94,225 @@ def market_data():
 @app.route('/api/calculate_credit', methods=['POST'])
 def calculate_credit():
     data = request.json
-    s_type = data.get('s_type')
-    k_short = _get_float(data.get('k_short'))
-    k_long = _get_float(data.get('k_long'))
+    strategy = data.get('strategy')
+    symbol = data.get('symbol', 'SPX').upper().strip()
     exp_date = data.get('exp_date')
+    strikes = data.get('strikes', {})
 
-    if not all([s_type, k_short, k_long, exp_date]):
+    if not strategy or not exp_date:
         return jsonify({"error": "Missing parameters"}), 400
 
     try:
-        opts = _get_options_chain(exp_date)
-        opt_type = "call" if s_type == "CCS" else "put"
-        short_opt = next((o for o in opts if o["strike"] == k_short and o["option_type"] == opt_type), None)
-        long_opt  = next((o for o in opts if o["strike"] == k_long  and o["option_type"] == opt_type), None)
+        opts = _get_options_chain(symbol, exp_date)
 
-        if not short_opt or not long_opt:
-            return jsonify({"error": f"Strikes do not exist in {exp_date}"}), 400
+        def find(strike, opt_type):
+            o = next((o for o in opts
+                      if abs(o["strike"] - float(strike)) < 0.01 and o["option_type"] == opt_type), None)
+            if not o:
+                raise ValueError(f"Strike {strike} {opt_type} not found for {exp_date}")
+            return o
 
-        def mid(opt):
-            bid = opt.get("bid") or 0
-            ask = opt.get("ask") or 0
-            if bid == 0 and ask == 0:
-                return opt.get("last") or 0
-            return (bid + ask) / 2
+        if strategy == 'PCS':
+            net = _mid(find(strikes['k_short'], 'put')) - _mid(find(strikes['k_long'], 'put'))
+        elif strategy == 'CCS':
+            net = _mid(find(strikes['k_short'], 'call')) - _mid(find(strikes['k_long'], 'call'))
+        elif strategy == 'IC':
+            net = (_mid(find(strikes['put_sell'], 'put')) - _mid(find(strikes['put_buy'], 'put'))
+                   + _mid(find(strikes['call_sell'], 'call')) - _mid(find(strikes['call_buy'], 'call')))
+        elif strategy == 'IB':
+            net = (_mid(find(strikes['body'], 'put')) + _mid(find(strikes['body'], 'call'))
+                   - _mid(find(strikes['put_buy'], 'put')) - _mid(find(strikes['call_buy'], 'call')))
+        elif strategy == 'CSP':
+            net = _mid(find(strikes['k_short'], 'put'))
+        elif strategy == 'CC':
+            net = _mid(find(strikes['k_short'], 'call'))
+        elif strategy == 'JL':
+            net = (_mid(find(strikes['put_sell'], 'put'))
+                   + _mid(find(strikes['call_sell'], 'call'))
+                   - _mid(find(strikes['call_buy'], 'call')))
+        else:
+            return jsonify({"error": "Unknown strategy"}), 400
 
-        net_credit = mid(short_opt) - mid(long_opt)
-        return jsonify({"net_credit": net_credit})
+        return jsonify({"net_credit": round(net, 2)})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/generate_chart', methods=['POST'])
 def generate_chart():
     data = request.json
-    s_type = data.get('s_type')
-    k_short = _get_float(data.get('k_short'))
-    k_long = _get_float(data.get('k_long'))
+    strategy  = data.get('strategy')
+    symbol    = data.get('symbol', 'SPX').upper().strip()
+    strikes   = data.get('strikes', {})
     net_credit = _get_float(data.get('net_credit'))
+    current_price = _get_float(data.get('current_price'))
 
-    if not all([s_type, k_short, k_long, net_credit]):
+    if not strategy or not strikes or net_credit is None:
         return jsonify({"error": "Missing parameters"}), 400
 
-    prices = np.linspace(min(k_short, k_long) - 50, max(k_short, k_long) + 50, 500)
+    fv = {k: float(v) for k, v in strikes.items() if v not in (None, '', 0)}
+    if not fv:
+        return jsonify({"error": "No strikes provided"}), 400
 
-    if s_type == "CCS":
-        short_pnl = np.where(prices > k_short, k_short - prices, 0)
-        long_pnl  = np.where(prices > k_long,  prices - k_long,  0)
-        max_loss  = k_long - k_short - net_credit
-        breakeven = k_short + net_credit
+    def sp(k, p): return -np.maximum(k - p, 0)
+    def lp(k, p): return  np.maximum(k - p, 0)
+    def sc(k, p): return -np.maximum(p - k, 0)
+    def lc(k, p): return  np.maximum(p - k, 0)
+
+    STRATEGY_NAMES = {
+        'PCS': 'PUT CREDIT SPREAD',
+        'CCS': 'CALL CREDIT SPREAD',
+        'IC':  'IRON CONDOR',
+        'IB':  'IRON BUTTERFLY',
+        'CSP': 'CASH SECURED PUT',
+        'CC':  'COVERED CALL',
+        'JL':  'JADE LIZARD',
+    }
+
+    min_k, max_k = min(fv.values()), max(fv.values())
+    span = max(max_k - min_k, 50)
+
+    if strategy == 'PCS':
+        k_s, k_l = fv['k_short'], fv['k_long']
+        prices = np.linspace(k_s - span * 1.5, k_s + span * 0.5, 500)
+        pnl = net_credit + sp(k_s, prices) + lp(k_l, prices)
+        max_profit = net_credit
+        max_loss   = k_s - k_l - net_credit
+        be_str     = f"{k_s - net_credit:.2f}"
+        legs = [("SELL PUT", k_s, "#FF4444"), ("BUY PUT", k_l, "#00FF00")]
+
+    elif strategy == 'CCS':
+        k_s, k_l = fv['k_short'], fv['k_long']
+        prices = np.linspace(k_s - span * 0.5, k_l + span * 1.5, 500)
+        pnl = net_credit + sc(k_s, prices) + lc(k_l, prices)
+        max_profit = net_credit
+        max_loss   = k_l - k_s - net_credit
+        be_str     = f"{k_s + net_credit:.2f}"
+        legs = [("SELL CALL", k_s, "#FF4444"), ("BUY CALL", k_l, "#00FF00")]
+
+    elif strategy == 'IC':
+        pb, ps, cs, cb = fv['put_buy'], fv['put_sell'], fv['call_sell'], fv['call_buy']
+        prices = np.linspace(pb - span * 0.5, cb + span * 0.5, 500)
+        pnl = net_credit + sp(ps, prices) + lp(pb, prices) + sc(cs, prices) + lc(cb, prices)
+        max_profit = net_credit
+        max_loss   = max(ps - pb, cb - cs) - net_credit
+        be_str     = f"{ps - net_credit:.2f} / {cs + net_credit:.2f}"
+        legs = [("BUY PUT", pb, "#00FF00"), ("SELL PUT", ps, "#FF4444"),
+                ("SELL CALL", cs, "#FF4444"), ("BUY CALL", cb, "#00FF00")]
+
+    elif strategy == 'IB':
+        pb, body, cb = fv['put_buy'], fv['body'], fv['call_buy']
+        prices = np.linspace(pb - span * 0.5, cb + span * 0.5, 500)
+        pnl = net_credit + sp(body, prices) + lp(pb, prices) + sc(body, prices) + lc(cb, prices)
+        max_profit = net_credit
+        max_loss   = min(body - pb, cb - body) - net_credit
+        be_str     = f"{body - net_credit:.2f} / {body + net_credit:.2f}"
+        legs = [("BUY PUT", pb, "#00FF00"), ("SELL ATM", body, "#FF4444"), ("BUY CALL", cb, "#00FF00")]
+
+    elif strategy == 'CSP':
+        k_s = fv['k_short']
+        prices = np.linspace(max(0, k_s * 0.6), k_s * 1.2, 500)
+        pnl = net_credit + sp(k_s, prices)
+        max_profit = net_credit
+        max_loss   = k_s - net_credit
+        be_str     = f"{k_s - net_credit:.2f}"
+        legs = [("SELL PUT", k_s, "#FF4444")]
+
+    elif strategy == 'CC':
+        k_s = fv['k_short']
+        s0  = current_price or k_s
+        prices = np.linspace(max(0, s0 * 0.6), k_s * 1.2, 500)
+        pnl = (prices - s0) + net_credit + sc(k_s, prices)
+        max_profit = k_s - s0 + net_credit
+        max_loss   = s0 - net_credit
+        be_str     = f"{s0 - net_credit:.2f}"
+        legs = [("SELL CALL", k_s, "#FF4444")]
+
+    elif strategy == 'JL':
+        ps, cs, cb = fv['put_sell'], fv['call_sell'], fv['call_buy']
+        prices = np.linspace(max(0, ps * 0.7), cb * 1.15, 500)
+        pnl = net_credit + sp(ps, prices) + sc(cs, prices) + lc(cb, prices)
+        max_profit = net_credit
+        cw = cb - cs
+        max_loss   = max(ps - net_credit, max(cw - net_credit, 0))
+        be_str     = f"{ps - net_credit:.2f}"
+        legs = [("SELL PUT", ps, "#FF4444"), ("SELL CALL", cs, "#FF4444"), ("BUY CALL", cb, "#00FF00")]
+
     else:
-        short_pnl = np.where(prices < k_short, prices - k_short, 0)
-        long_pnl  = np.where(prices < k_long,  k_long - prices,  0)
-        max_loss  = k_short - k_long - net_credit
-        breakeven = k_short - net_credit
+        return jsonify({"error": "Unknown strategy"}), 400
 
-    pnl = short_pnl + long_pnl + net_credit
-    max_profit = net_credit
-
-    bg_color = "#0A1128"
-    text_color = "white"
-    op_name = "CALL CREDIT SPREAD" if s_type == "CCS" else "PUT CREDIT SPREAD"
-
-    fig, ax = plt.subplots(figsize=(11, 8), facecolor=bg_color)
-    ax.set_facecolor(bg_color)
+    # --- Draw chart ---
+    bg = "#0A1128"
+    fig, ax = plt.subplots(figsize=(11, 8), facecolor=bg)
+    ax.set_facecolor(bg)
 
     ax.plot(prices, pnl, color='white', linewidth=2)
     ax.axhline(0, color='gray', linewidth=1, alpha=0.5)
 
-    profit_mask = pnl > 0
-    if np.any(profit_mask):
-        profit_pnl = np.copy(pnl)
-        profit_pnl[~profit_mask] = 0
+    pm = pnl > 0
+    if np.any(pm):
         for i in range(10):
-            y_fill = profit_pnl * (1 - i/10.0)
-            ax.fill_between(prices, 0, y_fill, where=profit_mask, color=(0, 0.8, 0), alpha=0.1, zorder=1)
+            ax.fill_between(prices, 0, np.where(pm, pnl * (1 - i/10.0), 0),
+                            where=pm, color=(0, 0.8, 0), alpha=0.1, zorder=1)
 
-    loss_mask = pnl < 0
-    if np.any(loss_mask):
-        loss_pnl = np.copy(pnl)
-        loss_pnl[~loss_mask] = 0
+    lm = pnl < 0
+    if np.any(lm):
         for i in range(10):
-            y_fill = loss_pnl * (1 - i/10.0)
-            ax.fill_between(prices, y_fill, 0, where=loss_mask, color=(0.8, 0, 0), alpha=0.1, zorder=1)
+            ax.fill_between(prices, np.where(lm, pnl * (1 - i/10.0), 0), 0,
+                            where=lm, color=(0.8, 0, 0), alpha=0.1, zorder=1)
 
-    ax.axvline(k_short, color='#00BFFF', linestyle='-',  linewidth=1.5)
-    ax.axvline(k_long,  color='gray',    linestyle='--', linewidth=1.5)
+    for label, k, color in legs:
+        is_sell = 'SELL' in label
+        ax.axvline(k, color='#00BFFF' if is_sell else 'gray',
+                   linestyle='-' if is_sell else '--', linewidth=1.5)
 
-    ax.text(k_short, ax.get_ylim()[1], f"{k_short:g}", color='#00BFFF', ha='center', va='bottom', fontsize=10, fontweight='bold')
-    ax.text(k_short, ax.get_ylim()[0], f"{k_short:g}", color='gray',    ha='center', va='top',    fontsize=10)
-    ax.text(k_long,  ax.get_ylim()[0], f"{k_long:g}",  color='gray',    ha='center', va='top',    fontsize=10)
-
-    title = f"NET CREDIT: ${max_profit:.2f}    MAX LOSS: ${abs(max_loss):.2f}    BREAKEVEN: {breakeven:.2f}"
-    ax.set_title(title, color=text_color, pad=15, fontsize=12, fontweight='bold')
-
-    ax.tick_params(colors=text_color)
-    ax.spines['bottom'].set_color(text_color)
-    ax.spines['top'].set_color('none')
-    ax.spines['right'].set_color('none')
-    ax.spines['left'].set_color(text_color)
+    ax.tick_params(colors='white')
+    for spine in ('top', 'right'):
+        ax.spines[spine].set_color('none')
+    ax.spines['bottom'].set_color('white')
+    ax.spines['left'].set_color('white')
     ax.yaxis.set_major_formatter('${x:1.0f}')
 
-    # Ajustar el gráfico para dejar panel derecho libre
+    title = f"NET CREDIT: ${net_credit:.2f}    MAX LOSS: ${abs(max_loss):.2f}    BREAKEVEN: {be_str}"
+    ax.set_title(title, color='white', pad=15, fontsize=12, fontweight='bold')
+
     fig.subplots_adjust(left=0.07, right=0.63, top=0.91, bottom=0.08)
 
-    # Línea separadora vertical
-    from matplotlib.lines import Line2D
     fig.add_artist(Line2D([0.66, 0.66], [0.05, 0.97], transform=fig.transFigure,
                           color='white', linewidth=0.5, alpha=0.2))
 
-    # Panel derecho: tipo de spread
+    # --- Right panel ---
     px = 0.68
-    fig.text(px, 0.93, op_name, color="white", fontsize=13, fontweight="heavy",
-             ha="left", va="top", transform=fig.transFigure,
-             bbox=dict(boxstyle="round,pad=0.4", fc=bg_color, ec="#00BFFF", linewidth=1.5))
+    n  = len(legs)
+    num_fs   = 28 if n <= 2 else (22 if n == 3 else 18)
+    label_fs = 13 if n <= 2 else (12 if n == 3 else 10)
 
-    # SELL
-    fig.text(px, 0.83, "SELL", color="#FF4444", fontsize=28, fontweight="bold",
-             ha="left", va="top", transform=fig.transFigure)
-    fig.text(px, 0.73, f"{k_short:g}", color="#FF4444", fontsize=28, fontweight="bold",
+    op_name = STRATEGY_NAMES.get(strategy, strategy)
+    fig.text(px, 0.93, op_name, color="white", fontsize=11, fontweight="heavy",
              ha="left", va="top", transform=fig.transFigure,
-             bbox=dict(boxstyle="round,pad=0.3", fc=bg_color, ec="#FF4444", linewidth=1.5))
+             bbox=dict(boxstyle="round,pad=0.4", fc=bg, ec="#00BFFF", linewidth=1.5))
 
-    # BUY
-    fig.text(px, 0.62, "BUY", color="#00FF00", fontsize=28, fontweight="bold",
+    # Ticker name — same fontsize as numbers
+    fig.text(px, 0.83, symbol, color="#00BFFF", fontsize=num_fs, fontweight="bold",
              ha="left", va="top", transform=fig.transFigure)
-    fig.text(px, 0.52, f"{k_long:g}", color="#00FF00", fontsize=28, fontweight="bold",
-             ha="left", va="top", transform=fig.transFigure,
-             bbox=dict(boxstyle="round,pad=0.3", fc=bg_color, ec="#00FF00", linewidth=1.5))
+
+    # Legs
+    legs_top = 0.71
+    legs_bot = 0.05
+    slot_h   = (legs_top - legs_bot) / n
+
+    for i, (label, k, color) in enumerate(legs):
+        y_lbl = legs_top - i * slot_h
+        y_num = y_lbl - slot_h * 0.38
+        fig.text(px, y_lbl, label, color=color, fontsize=label_fs, fontweight="bold",
+                 ha="left", va="top", transform=fig.transFigure)
+        fig.text(px, y_num, f"{k:g}", color=color, fontsize=num_fs, fontweight="bold",
+                 ha="left", va="top", transform=fig.transFigure,
+                 bbox=dict(boxstyle="round,pad=0.3", fc=bg, ec=color, linewidth=1.5))
 
     img_io = io.BytesIO()
-    fig.savefig(img_io, format='png', facecolor=bg_color, bbox_inches='tight')
+    fig.savefig(img_io, format='png', facecolor=bg, bbox_inches='tight')
     img_io.seek(0)
     plt.close(fig)
-
     return send_file(img_io, mimetype='image/png')
 
 if __name__ == '__main__':

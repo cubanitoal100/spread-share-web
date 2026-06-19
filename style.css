@@ -205,6 +205,41 @@ button:active {
     font-weight: 300;
 }
 
+/* Ticker combobox */
+.ticker-combobox {
+    position: relative;
+}
+
+.ticker-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #1a2744;
+    border: 1px solid var(--primary);
+    border-radius: 8px;
+    max-height: 180px;
+    overflow-y: auto;
+    z-index: 1000;
+    display: none;
+    margin-top: 4px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+
+.ticker-option {
+    padding: 9px 14px;
+    cursor: pointer;
+    color: var(--text-main);
+    font-size: 0.9rem;
+    transition: background 0.15s;
+}
+
+.ticker-option:hover,
+.ticker-option.selected {
+    background: rgba(0, 191, 255, 0.18);
+    color: var(--primary);
+}
+
 /* Scrollbar personalizada */
 ::-webkit-scrollbar {
     width: 8px;
