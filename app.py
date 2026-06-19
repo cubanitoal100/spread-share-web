@@ -277,32 +277,38 @@ def generate_chart():
 
     fig.subplots_adjust(left=0.07, right=0.63, top=0.91, bottom=0.08)
 
+    # Vertical separator
     fig.add_artist(Line2D([0.66, 0.66], [0.05, 0.97], transform=fig.transFigure,
                           color='white', linewidth=0.5, alpha=0.2))
+    # Horizontal separator — divides info (top) from comment (bottom)
+    fig.add_artist(Line2D([0.67, 0.995], [0.50, 0.50], transform=fig.transFigure,
+                          color='white', linewidth=0.5, alpha=0.2))
 
-    # --- Right panel ---
+    # --- Right panel (top half: 0.93 → 0.51) ---
     px = 0.68
     n  = len(legs)
-    num_fs   = 28 if n <= 2 else (22 if n == 3 else 18)
-    label_fs = 13 if n <= 2 else (12 if n == 3 else 10)
+
+    # Font sizes adaptive to number of legs in the half-panel
+    num_fs   = 24 if n <= 2 else (20 if n == 3 else 16)
+    label_fs = 12 if n <= 2 else (11 if n == 3 else  9)
 
     op_name = STRATEGY_NAMES.get(strategy, strategy)
     fig.text(px, 0.93, op_name, color="white", fontsize=11, fontweight="heavy",
              ha="left", va="top", transform=fig.transFigure,
              bbox=dict(boxstyle="round,pad=0.4", fc=bg, ec="#00BFFF", linewidth=1.5))
 
-    # Ticker name — same fontsize as numbers
+    # Ticker — same size as numbers
     fig.text(px, 0.83, symbol, color="#00BFFF", fontsize=num_fs, fontweight="bold",
              ha="left", va="top", transform=fig.transFigure)
 
-    # Legs
+    # Legs — constrained to top half (0.71 → 0.51)
     legs_top = 0.71
-    legs_bot = 0.05
+    legs_bot = 0.51
     slot_h   = (legs_top - legs_bot) / n
 
     for i, (label, k, color) in enumerate(legs):
         y_lbl = legs_top - i * slot_h
-        y_num = y_lbl - slot_h * 0.38
+        y_num = y_lbl - slot_h * 0.40
         fig.text(px, y_lbl, label, color=color, fontsize=label_fs, fontweight="bold",
                  ha="left", va="top", transform=fig.transFigure)
         fig.text(px, y_num, f"{k:g}", color=color, fontsize=num_fs, fontweight="bold",
