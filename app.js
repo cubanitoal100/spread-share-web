@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function onStrikeChange() {
         clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(autoCalcCredit, 800);
+        debounceTimer = setTimeout(autoCalcCredit, 300);
     }
 
     async function generateChart() {
@@ -162,7 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
         clearTimeout(commentDebounceTimer);
         commentDebounceTimer = setTimeout(() => {
             if (currentChartBlob) generateChart();
-        }, 1000);
+        }, 400);
     }
 
     // Eventos
