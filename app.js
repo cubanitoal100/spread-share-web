@@ -140,35 +140,37 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.drawImage(baseChartImg, 0, 0);
 
         if (comment) {
-            // Panel derecho: x desde 66% del ancho, comentario debajo del strike BUY (~69% del alto)
             const panelX = w * 0.67;
             const panelW = w - panelX;
             const boxX = panelX + panelW * 0.04;
             const boxW = panelW * 0.88;
-            const boxY = h * 0.70;
+            const boxY = h * 0.76;
+            const boxH = h * 0.94 - boxY; // altura fija hasta el fondo del panel
             const padY = 10;
+            const maxTextW = boxW - 20;
 
-            const fontSize = Math.round(w * 0.016);
-            const lineHeight = fontSize * 1.45;
-            ctx.font = `italic ${fontSize}px Inter, sans-serif`;
-
-            // Word wrap dentro del panel
-            const maxTextW = boxW - 16;
-            const words = comment.split(' ');
-            const lines = [];
-            let line = '';
-            for (const word of words) {
-                const test = line ? `${line} ${word}` : word;
-                if (ctx.measureText(test).width > maxTextW && line) {
-                    lines.push(line);
-                    line = word;
-                } else {
-                    line = test;
+            // Encuentra el font size más grande que quepa en el espacio fijo
+            let fontSize, lines;
+            for (fontSize = Math.round(w * 0.030); fontSize >= Math.round(w * 0.009); fontSize--) {
+                ctx.font = `italic ${fontSize}px Inter, sans-serif`;
+                const lh = fontSize * 1.45;
+                const words = comment.split(' ');
+                lines = [];
+                let line = '';
+                for (const word of words) {
+                    const test = line ? `${line} ${word}` : word;
+                    if (ctx.measureText(test).width > maxTextW && line) {
+                        lines.push(line);
+                        line = word;
+                    } else {
+                        line = test;
+                    }
                 }
+                if (line) lines.push(line);
+                if (lines.length * lh + padY * 2 <= boxH) break;
             }
-            if (line) lines.push(line);
 
-            const boxH = lines.length * lineHeight + padY * 2;
+            const lineHeight = fontSize * 1.45;
             const r = 6;
 
             ctx.fillStyle = 'rgba(22, 33, 62, 0.92)';
@@ -189,9 +191,12 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.stroke();
 
             ctx.fillStyle = '#E0E0E0';
+            ctx.font = `italic ${fontSize}px Inter, sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
-            let textY = boxY + padY;
+            // Centrar el bloque de texto verticalmente dentro de la caja
+            const totalTextH = lines.length * lineHeight;
+            let textY = boxY + padY + (boxH - padY * 2 - totalTextH) / 2;
             for (const l of lines) {
                 ctx.fillText(l, boxX + boxW / 2, textY);
                 textY += lineHeight;
