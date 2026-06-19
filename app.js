@@ -140,12 +140,20 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.drawImage(baseChartImg, 0, 0);
 
         if (comment) {
-            const fontSize = Math.round(w * 0.022);
-            const lineHeight = fontSize * 1.4;
+            // Panel derecho: x desde 66% del ancho, comentario debajo del strike BUY (~69% del alto)
+            const panelX = w * 0.67;
+            const panelW = w - panelX;
+            const boxX = panelX + panelW * 0.04;
+            const boxW = panelW * 0.88;
+            const boxY = h * 0.70;
+            const padY = 10;
+
+            const fontSize = Math.round(w * 0.016);
+            const lineHeight = fontSize * 1.45;
             ctx.font = `italic ${fontSize}px Inter, sans-serif`;
 
-            // Word wrap
-            const maxTextW = w * 0.82;
+            // Word wrap dentro del panel
+            const maxTextW = boxW - 16;
             const words = comment.split(' ');
             const lines = [];
             let line = '';
@@ -160,18 +168,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (line) lines.push(line);
 
-            const boxPadX = w * 0.04;
-            const boxPadY = h * 0.015;
-            const boxW = w * 0.90;
-            const boxH = lines.length * lineHeight + boxPadY * 2;
-            const boxX = w * 0.05;
-            const boxY = h - boxH - h * 0.03;
-            const r = 8;
+            const boxH = lines.length * lineHeight + padY * 2;
+            const r = 6;
 
-            // Caja de fondo
             ctx.fillStyle = 'rgba(22, 33, 62, 0.92)';
             ctx.strokeStyle = '#00BFFF';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 1.5;
             ctx.beginPath();
             ctx.moveTo(boxX + r, boxY);
             ctx.lineTo(boxX + boxW - r, boxY);
@@ -186,13 +188,12 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.fill();
             ctx.stroke();
 
-            // Texto
             ctx.fillStyle = '#E0E0E0';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
-            let textY = boxY + boxPadY;
+            let textY = boxY + padY;
             for (const l of lines) {
-                ctx.fillText(l, w / 2, textY);
+                ctx.fillText(l, boxX + boxW / 2, textY);
                 textY += lineHeight;
             }
         }

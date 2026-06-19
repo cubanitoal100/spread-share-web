@@ -194,16 +194,16 @@ def generate_chart():
              bbox=dict(boxstyle="round,pad=0.4", fc=bg_color, ec="#00BFFF", linewidth=1.5))
 
     # SELL
-    fig.text(px, 0.72, "SELL", color="#FF4444", fontsize=12, fontweight="bold",
+    fig.text(px, 0.78, "SELL", color="#FF4444", fontsize=28, fontweight="bold",
              ha="left", va="top", transform=fig.transFigure)
     fig.text(px, 0.64, f"{k_short:g}", color="#FF4444", fontsize=28, fontweight="bold",
              ha="left", va="top", transform=fig.transFigure,
              bbox=dict(boxstyle="round,pad=0.3", fc=bg_color, ec="#FF4444", linewidth=1.5))
 
     # BUY
-    fig.text(px, 0.46, "BUY", color="#00FF00", fontsize=12, fontweight="bold",
+    fig.text(px, 0.48, "BUY", color="#00FF00", fontsize=28, fontweight="bold",
              ha="left", va="top", transform=fig.transFigure)
-    fig.text(px, 0.38, f"{k_long:g}", color="#00FF00", fontsize=28, fontweight="bold",
+    fig.text(px, 0.34, f"{k_long:g}", color="#00FF00", fontsize=28, fontweight="bold",
              ha="left", va="top", transform=fig.transFigure,
              bbox=dict(boxstyle="round,pad=0.3", fc=bg_color, ec="#00FF00", linewidth=1.5))
 
