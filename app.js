@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnShare = document.getElementById('btn_share');
     const btnRefresh = document.getElementById('btn_refresh_price');
     const statusMsg = document.getElementById('status_msg');
+    const toggleBtns = document.querySelectorAll('.toggle-btn');
     
     const chartImg = document.getElementById('chart_img');
     const chartPlaceholder = document.getElementById('chart_placeholder');
@@ -163,8 +164,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Eventos
     elShort.addEventListener('keyup', onStrikeChange);
     elLong.addEventListener('keyup', onStrikeChange);
-    elType.addEventListener('change', autoCalcCredit);
     elExp.addEventListener('change', autoCalcCredit);
+
+    toggleBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            toggleBtns.forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            elType.value = e.target.dataset.value;
+            autoCalcCredit();
+        });
+    });
     
     btnRefresh.addEventListener('click', loadMarketData);
     btnCalc.addEventListener('click', generateChart);

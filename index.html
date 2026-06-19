@@ -15,10 +15,11 @@
             
             <div class="input-group">
                 <label>Spread Type:</label>
-                <select id="spread_type">
-                    <option value="CCS">CCS (Call Credit Spread)</option>
-                    <option value="PCS">PCS (Put Credit Spread)</option>
-                </select>
+                <div class="toggle-container" id="spread_type_toggle">
+                    <button type="button" class="toggle-btn active" data-value="CCS">CCS</button>
+                    <button type="button" class="toggle-btn" data-value="PCS">PCS</button>
+                </div>
+                <input type="hidden" id="spread_type" value="CCS">
             </div>
 
             <div class="input-group">
