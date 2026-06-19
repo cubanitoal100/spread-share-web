@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let debounceTimer;
     let commentDebounceTimer;
     let currentChartBlob = null;
+    let chartAbortController = null;
 
     function setStatus(msg, color = 'var(--text-muted)') {
         statusMsg.textContent = msg;
@@ -96,29 +97,34 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        if (chartAbortController) chartAbortController.abort();
+        chartAbortController = new AbortController();
+        const signal = chartAbortController.signal;
+
         setStatus("Generating professional chart...", "var(--primary)");
         try {
             const res = await fetch('/api/generate_chart', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ s_type, k_short, k_long, net_credit, comment })
+                body: JSON.stringify({ s_type, k_short, k_long, net_credit, comment }),
+                signal
             });
-            
+
             if (!res.ok) {
                 const err = await res.json();
                 throw new Error(err.error || "Error plotting");
             }
-            
+
             currentChartBlob = await res.blob();
             const url = URL.createObjectURL(currentChartBlob);
-            
+
             chartImg.src = url;
             chartImg.style.display = 'block';
             chartPlaceholder.style.display = 'none';
-            
+
             setStatus("Chart generated successfully.", "var(--success)");
         } catch (e) {
-            setStatus("Error: " + e.message, "red");
+            if (e.name !== 'AbortError') setStatus("Error: " + e.message, "red");
         }
     }
 
