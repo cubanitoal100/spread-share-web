@@ -10,13 +10,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnRefresh = document.getElementById('btn_refresh_price');
     const statusMsg = document.getElementById('status_msg');
     const toggleBtns = document.querySelectorAll('.toggle-btn');
-    
+
     const chartImg = document.getElementById('chart_img');
     const chartPlaceholder = document.getElementById('chart_placeholder');
-    
+
     let debounceTimer;
-    let commentDebounceTimer;
     let currentChartBlob = null;
+    let baseChartImg = null;
     let chartAbortController = null;
 
     function setStatus(msg, color = 'var(--text-muted)') {
@@ -30,9 +30,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch('/api/market_data');
             const data = await res.json();
             if (data.error) throw new Error(data.error);
-            
+
             elPrice.value = data.current_price.toFixed(2);
-            
+
             elExp.innerHTML = '';
             if (data.expirations.length > 0) {
                 data.expirations.forEach(d => {
@@ -68,12 +68,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ s_type, k_short, k_long, exp_date })
             });
             const data = await res.json();
-
             if (data.error) throw new Error(data.error);
 
             elCredit.value = data.net_credit.toFixed(2);
             setStatus("Credit auto-calculated.", "var(--success)");
-            await generateChart();
+            await generateBaseChart();
         } catch (e) {
             setStatus("Error: " + e.message, "red");
             elCredit.value = "";
@@ -85,12 +84,11 @@ document.addEventListener('DOMContentLoaded', () => {
         debounceTimer = setTimeout(autoCalcCredit, 300);
     }
 
-    async function generateChart() {
+    async function generateBaseChart() {
         const s_type = elType.value;
         const k_short = elShort.value;
         const k_long = elLong.value;
         const net_credit = elCredit.value;
-        const comment = elComment.value;
 
         if (!k_short || !k_long || !net_credit) {
             setStatus("Missing data for plotting.", "red");
@@ -101,12 +99,12 @@ document.addEventListener('DOMContentLoaded', () => {
         chartAbortController = new AbortController();
         const signal = chartAbortController.signal;
 
-        setStatus("Generating professional chart...", "var(--primary)");
+        setStatus("Generating chart...", "var(--primary)");
         try {
             const res = await fetch('/api/generate_chart', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ s_type, k_short, k_long, net_credit, comment }),
+                body: JSON.stringify({ s_type, k_short, k_long, net_credit }),
                 signal
             });
 
@@ -115,17 +113,96 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(err.error || "Error plotting");
             }
 
-            currentChartBlob = await res.blob();
-            const url = URL.createObjectURL(currentChartBlob);
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
 
-            chartImg.src = url;
-            chartImg.style.display = 'block';
-            chartPlaceholder.style.display = 'none';
+            baseChartImg = new Image();
+            baseChartImg.onload = () => renderWithComment();
+            baseChartImg.src = url;
 
-            setStatus("Chart generated successfully.", "var(--success)");
+            setStatus("Chart generated.", "var(--success)");
         } catch (e) {
             if (e.name !== 'AbortError') setStatus("Error: " + e.message, "red");
         }
+    }
+
+    function renderWithComment() {
+        if (!baseChartImg) return;
+
+        const comment = elComment.value.trim();
+        const w = baseChartImg.naturalWidth;
+        const h = baseChartImg.naturalHeight;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(baseChartImg, 0, 0);
+
+        if (comment) {
+            const fontSize = Math.round(w * 0.022);
+            const lineHeight = fontSize * 1.4;
+            ctx.font = `italic ${fontSize}px Inter, sans-serif`;
+
+            // Word wrap
+            const maxTextW = w * 0.82;
+            const words = comment.split(' ');
+            const lines = [];
+            let line = '';
+            for (const word of words) {
+                const test = line ? `${line} ${word}` : word;
+                if (ctx.measureText(test).width > maxTextW && line) {
+                    lines.push(line);
+                    line = word;
+                } else {
+                    line = test;
+                }
+            }
+            if (line) lines.push(line);
+
+            const boxPadX = w * 0.04;
+            const boxPadY = h * 0.015;
+            const boxW = w * 0.90;
+            const boxH = lines.length * lineHeight + boxPadY * 2;
+            const boxX = w * 0.05;
+            const boxY = h - boxH - h * 0.03;
+            const r = 8;
+
+            // Caja de fondo
+            ctx.fillStyle = 'rgba(22, 33, 62, 0.92)';
+            ctx.strokeStyle = '#00BFFF';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(boxX + r, boxY);
+            ctx.lineTo(boxX + boxW - r, boxY);
+            ctx.quadraticCurveTo(boxX + boxW, boxY, boxX + boxW, boxY + r);
+            ctx.lineTo(boxX + boxW, boxY + boxH - r);
+            ctx.quadraticCurveTo(boxX + boxW, boxY + boxH, boxX + boxW - r, boxY + boxH);
+            ctx.lineTo(boxX + r, boxY + boxH);
+            ctx.quadraticCurveTo(boxX, boxY + boxH, boxX, boxY + boxH - r);
+            ctx.lineTo(boxX, boxY + r);
+            ctx.quadraticCurveTo(boxX, boxY, boxX + r, boxY);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Texto
+            ctx.fillStyle = '#E0E0E0';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            let textY = boxY + boxPadY;
+            for (const l of lines) {
+                ctx.fillText(l, w / 2, textY);
+                textY += lineHeight;
+            }
+        }
+
+        canvas.toBlob(blob => {
+            currentChartBlob = blob;
+            chartImg.src = URL.createObjectURL(blob);
+            chartImg.style.display = 'block';
+            chartPlaceholder.style.display = 'none';
+        }, 'image/png');
     }
 
     async function shareWhatsApp() {
@@ -134,13 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Si el usuario cambió el comentario después de graficar, graficamos de nuevo rápido
-        setStatus("Preparing to share...", "var(--primary)");
-        await generateChart();
-
         if (!navigator.share) {
-            setStatus("Your browser does not natively support Web Share API.", "red");
-            // Workaround para navegadores sin Share API: descargar la imagen
             const url = URL.createObjectURL(currentChartBlob);
             const a = document.createElement('a');
             a.href = url;
@@ -151,31 +222,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const file = new File([currentChartBlob], "spread_chart.png", { type: currentChartBlob.type });
-            await navigator.share({
-                title: 'Spread Operation',
-                files: [file]
-            });
+            const file = new File([currentChartBlob], "spread_chart.png", { type: 'image/png' });
+            await navigator.share({ title: 'Spread Operation', files: [file] });
             setStatus("Shared successfully!", "var(--success)");
         } catch (e) {
-            // El usuario canceló o falló
-            console.error(e);
-            setStatus("Share action completed or cancelled.", "var(--text-muted)");
+            if (e.name !== 'AbortError') setStatus("Share cancelled.", "var(--text-muted)");
         }
-    }
-
-    function onCommentChange() {
-        clearTimeout(commentDebounceTimer);
-        commentDebounceTimer = setTimeout(() => {
-            if (currentChartBlob) generateChart();
-        }, 150);
     }
 
     // Eventos
     elShort.addEventListener('keyup', onStrikeChange);
     elLong.addEventListener('keyup', onStrikeChange);
     elExp.addEventListener('change', autoCalcCredit);
-    elComment.addEventListener('input', onCommentChange);
+    elComment.addEventListener('input', renderWithComment);
 
     toggleBtns.forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -189,6 +248,5 @@ document.addEventListener('DOMContentLoaded', () => {
     btnRefresh.addEventListener('click', loadMarketData);
     btnShare.addEventListener('click', shareWhatsApp);
 
-    // Carga inicial
     loadMarketData();
 });

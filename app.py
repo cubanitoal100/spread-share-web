@@ -1,6 +1,5 @@
 import os
 import io
-import textwrap
 import numpy as np
 import requests
 from flask import Flask, render_template, request, jsonify, send_file
@@ -117,7 +116,6 @@ def generate_chart():
     k_short = _get_float(data.get('k_short'))
     k_long = _get_float(data.get('k_long'))
     net_credit = _get_float(data.get('net_credit'))
-    comment = data.get('comment', '').strip()
 
     if not all([s_type, k_short, k_long, net_credit]):
         return jsonify({"error": "Missing parameters"}), 400
@@ -192,13 +190,7 @@ def generate_chart():
     ax.text(x_pos, 0.85, f"SELL - {k_short:g}", color="#FF4444", fontsize=28, fontweight="bold",  ha=align, va="top", transform=ax.transAxes, bbox=bbox_props)
     ax.text(x_pos, 0.72, f"BUY - {k_long:g}",   color="#00FF00", fontsize=28, fontweight="bold",  ha=align, va="top", transform=ax.transAxes, bbox=bbox_props)
 
-    if comment:
-        wrapped_comment = "\n".join(textwrap.wrap(comment, width=70))
-        fig.text(0.5, 0.11, wrapped_comment, color="#E0E0E0", fontsize=18, fontstyle="italic", ha="center", va="center",
-                 bbox=dict(boxstyle="round,pad=0.5", fc="#16213E", ec="#00BFFF", alpha=0.9))
-        fig.tight_layout(rect=[0, 0.22, 1, 1])
-    else:
-        fig.tight_layout()
+    fig.tight_layout()
 
     img_io = io.BytesIO()
     fig.savefig(img_io, format='png', facecolor=bg_color, bbox_inches='tight')
