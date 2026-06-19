@@ -13,7 +13,7 @@ app = Flask(__name__, template_folder='.', static_folder='.', static_url_path=''
 CORS(app)
 
 TRADIER_TOKEN = os.environ.get("TRADIER_TOKEN")
-TRADIER_BASE = "https://sandbox.tradier.com/v1"
+TRADIER_BASE = "https://api.tradier.com/v1"
 
 def _headers():
     return {
