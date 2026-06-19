@@ -18,10 +18,6 @@ def _get_float(val):
     except:
         return None
 
-@app.route('/ping')
-def ping():
-    return 'ok', 200
-
 @app.route('/')
 def index():
     return render_template('index.html')
