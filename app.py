@@ -138,7 +138,9 @@ def generate_chart():
 
     bg_color = "#0A1128"
     text_color = "white"
-    fig, ax = plt.subplots(figsize=(8, 8), facecolor=bg_color)
+    op_name = "CALL CREDIT SPREAD" if s_type == "CCS" else "PUT CREDIT SPREAD"
+
+    fig, ax = plt.subplots(figsize=(11, 8), facecolor=bg_color)
     ax.set_facecolor(bg_color)
 
     ax.plot(prices, pnl, color='white', linewidth=2)
@@ -167,8 +169,8 @@ def generate_chart():
     ax.text(k_short, ax.get_ylim()[0], f"{k_short:g}", color='gray',    ha='center', va='top',    fontsize=10)
     ax.text(k_long,  ax.get_ylim()[0], f"{k_long:g}",  color='gray',    ha='center', va='top',    fontsize=10)
 
-    title = f"NET CREDIT: ${max_profit:.2f}    MAX LOSS: ${abs(max_loss):.2f}    MAX PROFIT: ${max_profit:.2f}    BREAKEVEN: {breakeven:.2f}"
-    ax.set_title(title, color=text_color, pad=20, fontsize=12, fontweight='bold')
+    title = f"NET CREDIT: ${max_profit:.2f}    MAX LOSS: ${abs(max_loss):.2f}    BREAKEVEN: {breakeven:.2f}"
+    ax.set_title(title, color=text_color, pad=15, fontsize=12, fontweight='bold')
 
     ax.tick_params(colors=text_color)
     ax.spines['bottom'].set_color(text_color)
@@ -177,20 +179,33 @@ def generate_chart():
     ax.spines['left'].set_color(text_color)
     ax.yaxis.set_major_formatter('${x:1.0f}')
 
-    bbox_props = dict(boxstyle="round,pad=0.3", fc=bg_color, ec="none", alpha=0.8)
+    # Ajustar el gráfico para dejar panel derecho libre
+    fig.subplots_adjust(left=0.07, right=0.63, top=0.91, bottom=0.08)
 
-    if s_type == "CCS":
-        op_name = "CALL CREDIT SPREAD"
-        x_pos, align = 0.95, "right"
-    else:
-        op_name = "PUT CREDIT SPREAD"
-        x_pos, align = 0.05, "left"
+    # Línea separadora vertical
+    from matplotlib.lines import Line2D
+    fig.add_artist(Line2D([0.66, 0.66], [0.05, 0.97], transform=fig.transFigure,
+                          color='white', linewidth=0.5, alpha=0.2))
 
-    ax.text(x_pos, 0.95, op_name,              color="white",   fontsize=24, fontweight="heavy", ha=align, va="top", transform=ax.transAxes, bbox=bbox_props)
-    ax.text(x_pos, 0.85, f"SELL - {k_short:g}", color="#FF4444", fontsize=28, fontweight="bold",  ha=align, va="top", transform=ax.transAxes, bbox=bbox_props)
-    ax.text(x_pos, 0.72, f"BUY - {k_long:g}",   color="#00FF00", fontsize=28, fontweight="bold",  ha=align, va="top", transform=ax.transAxes, bbox=bbox_props)
+    # Panel derecho: tipo de spread
+    px = 0.68
+    fig.text(px, 0.90, op_name, color="white", fontsize=13, fontweight="heavy",
+             ha="left", va="top", transform=fig.transFigure,
+             bbox=dict(boxstyle="round,pad=0.4", fc=bg_color, ec="#00BFFF", linewidth=1.5))
 
-    fig.tight_layout()
+    # SELL
+    fig.text(px, 0.72, "SELL", color="#FF4444", fontsize=12, fontweight="bold",
+             ha="left", va="top", transform=fig.transFigure)
+    fig.text(px, 0.64, f"{k_short:g}", color="#FF4444", fontsize=28, fontweight="bold",
+             ha="left", va="top", transform=fig.transFigure,
+             bbox=dict(boxstyle="round,pad=0.3", fc=bg_color, ec="#FF4444", linewidth=1.5))
+
+    # BUY
+    fig.text(px, 0.46, "BUY", color="#00FF00", fontsize=12, fontweight="bold",
+             ha="left", va="top", transform=fig.transFigure)
+    fig.text(px, 0.38, f"{k_long:g}", color="#00FF00", fontsize=28, fontweight="bold",
+             ha="left", va="top", transform=fig.transFigure,
+             bbox=dict(boxstyle="round,pad=0.3", fc=bg_color, ec="#00FF00", linewidth=1.5))
 
     img_io = io.BytesIO()
     fig.savefig(img_io, format='png', facecolor=bg_color, bbox_inches='tight')
