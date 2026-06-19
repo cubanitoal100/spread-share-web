@@ -173,23 +173,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const lineHeight = fontSize * 1.45;
             const r = 6;
 
-            ctx.fillStyle = 'rgba(22, 33, 62, 0.92)';
-            ctx.strokeStyle = '#00BFFF';
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.moveTo(boxX + r, boxY);
-            ctx.lineTo(boxX + boxW - r, boxY);
-            ctx.quadraticCurveTo(boxX + boxW, boxY, boxX + boxW, boxY + r);
-            ctx.lineTo(boxX + boxW, boxY + boxH - r);
-            ctx.quadraticCurveTo(boxX + boxW, boxY + boxH, boxX + boxW - r, boxY + boxH);
-            ctx.lineTo(boxX + r, boxY + boxH);
-            ctx.quadraticCurveTo(boxX, boxY + boxH, boxX, boxY + boxH - r);
-            ctx.lineTo(boxX, boxY + r);
-            ctx.quadraticCurveTo(boxX, boxY, boxX + r, boxY);
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-
             ctx.fillStyle = '#E0E0E0';
             ctx.font = `italic ${fontSize}px Inter, sans-serif`;
             ctx.textAlign = 'center';
