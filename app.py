@@ -304,16 +304,34 @@ def generate_chart():
     # Legs — constrained to top half (0.71 → 0.51)
     legs_top = 0.71
     legs_bot = 0.51
-    slot_h   = (legs_top - legs_bot) / n
 
-    for i, (label, k, color) in enumerate(legs):
-        y_lbl = legs_top - i * slot_h
-        y_num = y_lbl - slot_h * 0.40
-        fig.text(px, y_lbl, label, color=color, fontsize=label_fs, fontweight="bold",
-                 ha="left", va="top", transform=fig.transFigure)
-        fig.text(px, y_num, f"{k:g}", color=color, fontsize=num_fs, fontweight="bold",
-                 ha="left", va="top", transform=fig.transFigure,
-                 bbox=dict(boxstyle="round,pad=0.3", fc=bg, ec=color, linewidth=1.5))
+    if strategy == 'IC':
+        # 2×2 grid: put spread on top row, call spread on bottom row
+        # legs order: [BUY PUT, SELL PUT, SELL CALL, BUY CALL]
+        px_l, px_r = 0.68, 0.835
+        nf, lf = 22, 11
+        rows = [
+            (0.71, 0.61, legs[0], legs[1]),  # top: BUY PUT | SELL PUT
+            (0.61, 0.51, legs[2], legs[3]),  # bot: SELL CALL | BUY CALL
+        ]
+        for yt, yb, leg_l, leg_r in rows:
+            sh = yt - yb
+            for (label, k, color), col_x in ((leg_l, px_l), (leg_r, px_r)):
+                fig.text(col_x, yt, label, color=color, fontsize=lf, fontweight="bold",
+                         ha="left", va="top", transform=fig.transFigure)
+                fig.text(col_x, yt - sh * 0.42, f"{k:g}", color=color, fontsize=nf, fontweight="bold",
+                         ha="left", va="top", transform=fig.transFigure,
+                         bbox=dict(boxstyle="round,pad=0.3", fc=bg, ec=color, linewidth=1.5))
+    else:
+        slot_h = (legs_top - legs_bot) / n
+        for i, (label, k, color) in enumerate(legs):
+            y_lbl = legs_top - i * slot_h
+            y_num = y_lbl - slot_h * 0.40
+            fig.text(px, y_lbl, label, color=color, fontsize=label_fs, fontweight="bold",
+                     ha="left", va="top", transform=fig.transFigure)
+            fig.text(px, y_num, f"{k:g}", color=color, fontsize=num_fs, fontweight="bold",
+                     ha="left", va="top", transform=fig.transFigure,
+                     bbox=dict(boxstyle="round,pad=0.3", fc=bg, ec=color, linewidth=1.5))
 
     img_io = io.BytesIO()
     fig.savefig(img_io, format='png', facecolor=bg, bbox_inches='tight')
