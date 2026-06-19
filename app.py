@@ -211,9 +211,10 @@ def generate_chart():
         legs = [("BUY PUT", pb, "#00FF00"), ("SELL ATM", body, "#FF4444"), ("BUY CALL", cb, "#00FF00")]
 
     elif strategy == 'CSP':
-        k_s = fv['k_short']
-        prices = np.linspace(max(0, k_s * 0.6), k_s * 1.2, 500)
-        pnl = net_credit + sp(k_s, prices)
+        k_s    = fv['k_short']
+        margin = max(k_s * 0.04, 80)
+        prices = np.linspace(k_s - margin * 2.5, k_s + margin, 500)
+        pnl    = net_credit + sp(k_s, prices)
         max_profit = net_credit
         max_loss   = k_s - net_credit
         be_str     = f"{k_s - net_credit:.2f}"
@@ -222,7 +223,8 @@ def generate_chart():
     elif strategy == 'CC':
         k_s = fv['k_short']
         s0  = current_price or k_s
-        prices = np.linspace(max(0, s0 * 0.6), k_s * 1.2, 500)
+        margin = max(k_s * 0.04, 80)
+        prices = np.linspace(s0 - margin, k_s + margin * 2.5, 500)
         pnl = (prices - s0) + net_credit + sc(k_s, prices)
         max_profit = k_s - s0 + net_credit
         max_loss   = s0 - net_credit
@@ -231,7 +233,9 @@ def generate_chart():
 
     elif strategy == 'JL':
         ps, cs, cb = fv['put_sell'], fv['call_sell'], fv['call_buy']
-        prices = np.linspace(max(0, ps * 0.7), cb * 1.15, 500)
+        span   = cb - ps
+        margin = max(span * 3.5, 80)
+        prices = np.linspace(ps - margin, cb + margin, 500)
         pnl = net_credit + sp(ps, prices) + sc(cs, prices) + lc(cb, prices)
         max_profit = net_credit
         cw = cb - cs
