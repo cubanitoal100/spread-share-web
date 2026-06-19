@@ -45,7 +45,7 @@ def market_data():
 
         r = requests.get(
             f"{TRADIER_BASE}/markets/options/expirations",
-            params={"symbol": "SPX"},
+            params={"symbol": "SPX", "includeAllRoots": "true", "strikes": "false"},
             headers=_headers(),
             timeout=10
         )
