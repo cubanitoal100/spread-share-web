@@ -212,7 +212,7 @@ def generate_chart():
 
     elif strategy == 'CSP':
         k_s    = fv['k_short']
-        margin = max(k_s * 0.04, 80)
+        margin = max(k_s * 0.015, 50)
         prices = np.linspace(k_s - margin * 2.5, k_s + margin, 500)
         pnl    = net_credit + sp(k_s, prices)
         max_profit = net_credit
@@ -223,7 +223,7 @@ def generate_chart():
     elif strategy == 'CC':
         k_s = fv['k_short']
         s0  = current_price or k_s
-        margin = max(k_s * 0.04, 80)
+        margin = max(k_s * 0.015, 50)
         prices = np.linspace(s0 - margin, k_s + margin * 2.5, 500)
         pnl = (prices - s0) + net_credit + sc(k_s, prices)
         max_profit = k_s - s0 + net_credit
