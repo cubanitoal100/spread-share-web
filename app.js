@@ -162,7 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
         clearTimeout(commentDebounceTimer);
         commentDebounceTimer = setTimeout(() => {
             if (currentChartBlob) generateChart();
-        }, 400);
+        }, 150);
     }
 
     // Eventos

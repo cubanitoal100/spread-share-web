@@ -14,6 +14,9 @@ CORS(app)
 
 TRADIER_TOKEN = os.environ.get("TRADIER_TOKEN")
 TRADIER_BASE = "https://api.tradier.com/v1"
+CACHE_TTL = 300  # segundos — cadena de opciones válida 5 min
+
+_options_cache = {}  # exp_date → (timestamp, [opciones])
 
 def _headers():
     return {
@@ -26,6 +29,24 @@ def _get_float(val):
         return float(val)
     except:
         return None
+
+def _get_options_chain(exp_date):
+    import time
+    now = time.time()
+    if exp_date in _options_cache:
+        ts, opts = _options_cache[exp_date]
+        if now - ts < CACHE_TTL:
+            return opts
+    r = requests.get(
+        f"{TRADIER_BASE}/markets/options/chains",
+        params={"symbol": "SPX", "expiration": exp_date, "greeks": "false"},
+        headers=_headers(),
+        timeout=10
+    )
+    r.raise_for_status()
+    opts = r.json()["options"]["option"]
+    _options_cache[exp_date] = (now, opts)
+    return opts
 
 @app.route('/')
 def index():
@@ -69,15 +90,7 @@ def calculate_credit():
         return jsonify({"error": "Missing parameters"}), 400
 
     try:
-        r = requests.get(
-            f"{TRADIER_BASE}/markets/options/chains",
-            params={"symbol": "SPX", "expiration": exp_date, "greeks": "false"},
-            headers=_headers(),
-            timeout=10
-        )
-        r.raise_for_status()
-        opts = r.json()["options"]["option"]
-
+        opts = _get_options_chain(exp_date)
         opt_type = "call" if s_type == "CCS" else "put"
         short_opt = next((o for o in opts if o["strike"] == k_short and o["option_type"] == opt_type), None)
         long_opt  = next((o for o in opts if o["strike"] == k_long  and o["option_type"] == opt_type), None)
