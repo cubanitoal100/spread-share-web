@@ -85,6 +85,8 @@ input:focus, select:focus, textarea:focus {
 
 .toggle-container {
     display: flex;
+    flex-direction: column;
+    gap: 4px;
     background: rgba(0, 0, 0, 0.4);
     border-radius: 8px;
     padding: 4px;
