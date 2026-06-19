@@ -189,21 +189,21 @@ def generate_chart():
 
     # Panel derecho: tipo de spread
     px = 0.68
-    fig.text(px, 0.90, op_name, color="white", fontsize=13, fontweight="heavy",
+    fig.text(px, 0.93, op_name, color="white", fontsize=13, fontweight="heavy",
              ha="left", va="top", transform=fig.transFigure,
              bbox=dict(boxstyle="round,pad=0.4", fc=bg_color, ec="#00BFFF", linewidth=1.5))
 
     # SELL
-    fig.text(px, 0.78, "SELL", color="#FF4444", fontsize=28, fontweight="bold",
+    fig.text(px, 0.83, "SELL", color="#FF4444", fontsize=28, fontweight="bold",
              ha="left", va="top", transform=fig.transFigure)
-    fig.text(px, 0.64, f"{k_short:g}", color="#FF4444", fontsize=28, fontweight="bold",
+    fig.text(px, 0.73, f"{k_short:g}", color="#FF4444", fontsize=28, fontweight="bold",
              ha="left", va="top", transform=fig.transFigure,
              bbox=dict(boxstyle="round,pad=0.3", fc=bg_color, ec="#FF4444", linewidth=1.5))
 
     # BUY
-    fig.text(px, 0.48, "BUY", color="#00FF00", fontsize=28, fontweight="bold",
+    fig.text(px, 0.62, "BUY", color="#00FF00", fontsize=28, fontweight="bold",
              ha="left", va="top", transform=fig.transFigure)
-    fig.text(px, 0.34, f"{k_long:g}", color="#00FF00", fontsize=28, fontweight="bold",
+    fig.text(px, 0.52, f"{k_long:g}", color="#00FF00", fontsize=28, fontweight="bold",
              ha="left", va="top", transform=fig.transFigure,
              bbox=dict(boxstyle="round,pad=0.3", fc=bg_color, ec="#00FF00", linewidth=1.5))
 
