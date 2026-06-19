@@ -2,6 +2,7 @@ import os
 import io
 import textwrap
 import numpy as np
+import requests
 from flask import Flask, render_template, request, jsonify, send_file
 import yfinance as yf
 import matplotlib
@@ -11,6 +12,13 @@ from flask_cors import CORS
 
 app = Flask(__name__, template_folder='.', static_folder='.', static_url_path='')
 CORS(app)
+
+def _yf_session():
+    session = requests.Session()
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
+    })
+    return session
 
 def _get_float(val):
     try:
@@ -25,8 +33,8 @@ def index():
 @app.route('/api/market_data')
 def market_data():
     try:
-        ticker = yf.Ticker("^SPX")
-        current_price = ticker.history(period="1d")['Close'].iloc[-1]
+        ticker = yf.Ticker("^SPX", session=_yf_session())
+        current_price = float(ticker.history(period="5d")['Close'].iloc[-1])
         expirations = list(ticker.options)
         return jsonify({
             "current_price": current_price,
@@ -47,7 +55,7 @@ def calculate_credit():
         return jsonify({"error": "Missing parameters"}), 400
         
     try:
-        ticker = yf.Ticker("^SPX")
+        ticker = yf.Ticker("^SPX", session=_yf_session())
         chain = ticker.option_chain(exp_date)
         
         if s_type == "CCS":
